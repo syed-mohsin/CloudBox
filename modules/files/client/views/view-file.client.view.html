@@ -1,0 +1,22 @@
+<section ng-controller="FilesController" ng-init="findOne()">
+  <div class="page-header">
+    <h1 ng-bind="file.title"></h1>
+  </div>
+  <div class="pull-right" ng-show="authentication.user._id == file.user._id">
+    <a class="btn btn-primary" ui-sref="files.edit({fileId: file._id})">
+      <i class="glyphicon glyphicon-edit"></i>
+    </a>
+    <a class="btn btn-primary" ng-click="remove();">
+      <i class="glyphicon glyphicon-trash"></i>
+    </a>
+  </div>
+  <small>
+    <em class="text-muted">
+      Posted on
+      <span ng-bind="file.created | date:'mediumDate'"></span>
+      by
+      <span ng-bind="file.user.displayName"></span>
+    </em>
+  </small>
+  <p class="lead" ng-bind="file.content"></p>
+</section>
