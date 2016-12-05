@@ -9,7 +9,10 @@ var path = require('path'),
   multer = require('multer'),
   config = require(path.resolve('./config/config')),
   File = mongoose.model('File'),
+  aws_client = require('aws-sdk'),
+  fs = require('fs'),
   errorHandler = require(path.resolve('./modules/core/server/controllers/errors.server.controller'));
+
 
 /**
  * Upload a file
@@ -18,6 +21,9 @@ exports.create = function (req, res) {
   var user = req.user;
   var upload = multer(config.uploads.s3FileUpload).single('fileItem');
 
+  var bucket_name = "cloudbucketnextgen";
+  var s3 = new aws_client.S3();
+  
   if (user) {
     // upload file to Amazon S3
     upload(req, res, function (uploadError) {
@@ -25,19 +31,48 @@ exports.create = function (req, res) {
         return res.status(400).send({
           message: 'Error occurred while uploading file'
         });
-      } else {
-          var file = new File(req.file);
-          file.user = user;
-          // save file details 
-          file.save(function (err) {
-            if (err) {
-              return res.status(400).send({
-                message: errorHandler.getErrorMessage(err)
-              });
-            } else {
-              res.json(file);
-            }
-          });
+      } 
+      else {
+        var file = new File(req.file);
+        file.user = user;
+        fs.readFile(file.path, function(err, data) {
+          if (err) {
+            return res.status(400).send({
+              message: "failed to read file locally"
+            });
+          } 
+          else {
+            console.log("data file was stored into memory");
+            var params = {Bucket : bucket_name, Key : file.user._id + "/" + file.filename, Body : data };
+            console.log("bucket_name:" + bucket_name);
+            console.log("key:" + file.user._id + "/" + file.filename);
+            //  console.log("data:" + data);
+            s3.putObject(params, function(err, data) {
+              if (err) {
+                return res.status(400).send({
+                  message: err
+                });
+              } 
+              else {
+                //  object saved in s3 - store metadata in mongodb
+                // save file details 
+                console.log("file uploaded to s3");
+                file.save(function (err) {
+                  if (err) {
+                    return res.status(400).send({
+                      message: errorHandler.getErrorMessage(err)
+                    });
+                  } 
+                  else {
+                    fs.unlink(file.path);
+                    res.json(file);
+                  }
+                });
+                  
+              }
+            });
+          }
+        });
       }
     });
   }
@@ -47,6 +82,10 @@ exports.create = function (req, res) {
  * Show the current file
  */
 exports.read = function (req, res) {
+  
+    // data from s3
+    // fs.write(file.path)
+  req.file.data = data;
   res.json(req.file);
 };
 
