@@ -4,7 +4,7 @@
 angular.module('files').controller('FilesController', ['$scope', '$stateParams', '$location', 'Authentication', 'FileUploader', 'Files',
   function ($scope, $stateParams, $location, Authentication, FileUploader, Files) {
     $scope.authentication = Authentication;
-
+    $scope.Math = Math;
     var uploader = $scope.uploader = new FileUploader({
       url: 'api/files/',
       alias: 'fileItem'
@@ -123,9 +123,14 @@ angular.module('files').controller('FilesController', ['$scope', '$stateParams',
       });
     };
 
-    // Find a list of Files
+    // Find a list of my Files
     $scope.find = function () {
-      $scope.files = Files.query();
+      $scope.files = Files.query(function(files) {
+        // delete files that don't have the same user id as current user
+        for (var i=$scope.files.length-1; i>=0;i--) 
+          if ($scope.files[i].user === null || $scope.files[i].user._id  !== Authentication.user._id)
+            $scope.files.splice(i,1);
+      });
     };
 
     // Find existing File

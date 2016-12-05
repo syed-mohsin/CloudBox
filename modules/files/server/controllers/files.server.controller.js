@@ -11,13 +11,14 @@ var path = require('path'),
   errorHandler = require(path.resolve('./modules/core/server/controllers/errors.server.controller'));
 
 /**
- * Create a file
+ * Upload a file
  */
 exports.create = function (req, res) {
   var user = req.user;
   var upload = multer(config.uploads.s3FileUpload).single('fileItem');
 
   if (user) {
+    // upload file to Amazon S3
     upload(req, res, function (uploadError) {
       if(uploadError) {
         return res.status(400).send({
@@ -25,21 +26,21 @@ exports.create = function (req, res) {
         });
       } else {
           console.log(req.file);
-          return res.status(200).send({
-            message: 'good job'
+          var file = new File(req.file);
+          file.user = user;
+          // save file details 
+          file.save(function (err) {
+            if (err) {
+              return res.status(400).send({
+                message: errorHandler.getErrorMessage(err)
+              });
+            } else {
+              res.json(file);
+            }
           });
       }
     });
   }
-  // file.save(function (err) {
-  //   if (err) {
-  //     return res.status(400).send({
-  //       message: errorHandler.getErrorMessage(err)
-  //     });
-  //   } else {
-  //     res.json(file);
-  //   }
-  // });
 };
 
 /**

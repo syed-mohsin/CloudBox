@@ -3,18 +3,32 @@
     <h1>Files</h1>
   </div>
   <div class="list-group">
-    <a ng-repeat="file in files" ui-sref="files.view({fileId: file._id})" class="list-group-item">
-      <small class="list-group-item-text">
-        Posted on
-        <span ng-bind="file.created | date:'mediumDate'"></span>
-        by
-        <span ng-bind="file.user.displayName"></span>
-      </small>
-      <h4 class="list-group-item-heading" ng-bind="file.title"></h4>
-      <p class="list-group-item-text" ng-bind="file.content"></p>
-    </a>
-  </div>
-  <div class="alert alert-warning text-center" ng-if="files.$resolved && !files.length">
-    No files stored yet, why don't you <a ui-sref="files.create">upload one</a>?
+    <h4>Number of files: {{ files.length }}</h4>
+    <table class="table">
+      <thead>
+        <tr>
+          <th width="50%">Name</th>
+          <th ng-show="uploader.isHTML5">Size</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr ng-repeat="file in files">
+          <td><a ui-sref="files.view({fileId: file._id})"><strong>{{ file.originalname }}</strong></a></td>
+          <td ng-show="uploader.isHTML5" nowrap>{{ file.size/1024/1024|number:2 }} MB</td>
+          <td nowrap>
+            <button type="button" class="btn btn-danger btn-xs" ng-click="remove(file)">
+              <span class="glyphicon glyphicon-trash"></span> Remove
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="alert alert-warning text-center" ng-if="files.$resolved && !files.length">
+      No files stored yet, why don't you <a ui-sref="files.create">upload one</a>?
+    </div>
+    <button type="button" class="btn btn-success btn-l" ui-sref="files.create">
+              <span class="glyphicon glyphicon-upload"></span> Upload More Files
+            </button>
   </div>
 </section>

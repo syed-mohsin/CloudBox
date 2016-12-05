@@ -10,20 +10,39 @@ var mongoose = require('mongoose'),
  * File Schema
  */
 var FileSchema = new Schema({
-  created: {
+  storageDate: {
     type: Date,
     default: Date.now
   },
-  title: {
+  originalname: {
     type: String,
     default: '',
     trim: true,
-    required: 'Title cannot be blank'
+    required: 'originalName cannot be blank'
   },
-  content: {
+  encoding: {
     type: String,
     default: '',
-    trim: true
+    trim: true,
+    required: 'encoding cannot be blank'
+  },
+  destination: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  filename: {
+    type: String,
+    default: '',
+    required: 'filename cannot be blank'
+  },
+  path: {
+    type: String,
+    required: 'path cannot be blank'
+  },
+  size: {
+    type: Number,
+    required: 'file size cannot be blank'
   },
   user: {
     type: Schema.ObjectId,

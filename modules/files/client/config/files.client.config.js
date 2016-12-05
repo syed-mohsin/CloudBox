@@ -19,7 +19,7 @@ angular.module('files').run(['Menus',
 
     // Add the dropdown create item
     Menus.addSubMenuItem('topbar', 'files', {
-      title: 'Create Files',
+      title: 'Upload Files',
       state: 'files.create',
       roles: ['user']
     });
