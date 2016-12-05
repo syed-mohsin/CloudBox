@@ -4,6 +4,7 @@
  * Module dependencies.
  */
 var path = require('path'),
+  fs = require('fs'),
   mongoose = require('mongoose'),
   multer = require('multer'),
   config = require(path.resolve('./config/config')),
@@ -25,7 +26,6 @@ exports.create = function (req, res) {
           message: 'Error occurred while uploading file'
         });
       } else {
-          console.log(req.file);
           var file = new File(req.file);
           file.user = user;
           // save file details 
@@ -82,6 +82,7 @@ exports.delete = function (req, res) {
         message: errorHandler.getErrorMessage(err)
       });
     } else {
+      fs.unlink(file.path);
       res.json(file);
     }
   });
