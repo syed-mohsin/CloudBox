@@ -85,7 +85,6 @@ exports.read = function (req, res) {
   
     // data from s3
     // fs.write(file.path)
-  req.file.data = data;
   res.json(req.file);
 };
 
