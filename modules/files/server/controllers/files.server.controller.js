@@ -66,9 +66,14 @@ exports.create = function (req, res) {
             var success = false;
 
             // file into all buckets
-            (function uploadFileToS3Bucket() {
+            (function uploadFileToS3Buckets() {
               if (bucket_index < bucket_names.length) {
-                var params = {Bucket : bucket_names[bucket_index], Key : file.user._id + "/" + file.filename, Body : data };
+                var params = {
+                  Bucket : bucket_names[bucket_index], 
+                  Key : file.user._id + "/" + file.filename, 
+                  Body : data 
+                };
+
                 s3.putObject(params, function(err, data) {
                   if (err && bucket_index < bucket_names.length - 1) {
                     // do nothing
@@ -95,7 +100,7 @@ exports.create = function (req, res) {
                   }
                   // increment bucket and recurse
                   bucket_index++;
-                  uploadFileToS3Bucket();
+                  uploadFileToS3Buckets();
                 });
               }
             }());          
@@ -110,55 +115,54 @@ exports.create = function (req, res) {
  * Show the current file
  */
 exports.read = function (req, res) {
-  
-    // data from s3
-    // fs.write(file.path)
   var user = req.user;
   var file = req.file;
   var s3 = new aws_client.S3();
   if (user) {
-    var i=0;
-    var bucket_name = bucket_names[0];
-    var params = {Bucket : bucket_names[0], Key : file.user._id + "/" + file.filename};
-    s3.getObject(params, function(err, data) {
-      if (err) {
-        console.log("could not retrieve file from primary!");
-        var params2 = {Bucket : bucket_names[1], Key : file.user._id + "/" + file.filename};
-        s3.getObject(params2, function(err, data){
-          if (err) {
-            console.log("error in second access!");
+
+    var bucket_index = 0;
+    var success = false;
+
+    (function getFileFromS3Buckets() {
+      if (bucket_index < bucket_names.length) {
+        var params = { 
+          Bucket : bucket_names[bucket_index], 
+          Key : file.user._id + "/" + file.filename 
+        };
+
+        s3.getObject(params, function(err, data) {
+          if (err && bucket_index < bucket_names.length - 1) {
+            // do nothing, keep trying other buckets
+          } else if (err && bucket_index === bucket_names.length - 1) {
             return res.status(400).send({
               message: err
             });
           } else {
-            console.log("retreived file from secondary!");
-            fs.writeFile(file.path, data, function(err, data) {
+            // successfully retrieved a file
+            fs.writeFile(file.path, data.Body, { flag: 'w' }, function(err) {
               if (err) {
                 return res.status(400).send({
                   message: err
                 });
               } else {
-                console.log("file retrieved from secondary and saved!");
+                // successfully written file locally
+                console.log("file retrieved eventually and saved!");
+                if (!success) {
+                  res.json(file);
+                  success = true;
+                  return;
+                }
+                // return res.json(req.file);
               }
-            });              
+            });  
           }
+          // increment bucket and recurse
+          bucket_index++;
+          getFileFromS3Buckets();
         });
-      } else {
-        console.log("file retrieved from primary!" + data);
-        fs.writeFile(req.file.path, data, function(err, data) {
-          if (err) {
-            return res.status(400).send({
-              message: err
-            });
-          } else {
-            console.log("file retrieved from primary and saved!");
-          }
-        });   
-            
       }
-    });
+    }());
   } 
-  res.json(req.file);
 };
 
 /**
@@ -198,7 +202,7 @@ exports.delete = function (req, res) {
           console.log("unable to delete file: " + file.path);
         }
       });
-      
+
       res.json(file);
     }
   });
