@@ -58,51 +58,47 @@ exports.create = function (req, res) {
             return res.status(400).send({
               message: "failed to read file locally"
             });
-          } 
-          else {
-            console.log("data file was stored into memory");
-            console.log("bucket_name:" + bucket_name);
-            console.log("key:" + file.user._id + "/" + file.filename);
-            //  console.log("data:" + data);
-          //  for(var i=0; i<bucket_names.length; ++i) {
-              var params = {Bucket : bucket_names[0], Key : file.user._id + "/" + file.filename, Body : data };
-            
-              s3.putObject(params, function(err, data) {
-                if (err) {
-                  return res.status(400).send({
-                    message: err
-                  });
-                } 
-                else {
-                  //  object saved in s3 - store metadata in mongodb
-                  // save file details 
-                  console.log("file uploaded to s3");
-                  file.save(function (err) {
-                    if (err) {
-                      return res.status(400).send({
-                        message: errorHandler.getErrorMessage(err)
-                      });
-                    } 
-                    else {
-                      fs.unlink(file.path);
-                      res.json(file);
-                    }
-                  });
-                }
-              });
-            //}
+          } else {
+            // file read success
+            var file_data = data;
 
-            for(var i=1; i<bucket_names.length; ++i) {
-              var parameters = {Bucket : bucket_names[i], Key : file.user._id + "/" + file.filename, Body : data };
-              s3.putObject(parameters, function(err, data) {
-                if (err) {
-                  // should we return a 400 here?
-                  return res.status(400).send({
-                    message: err
-                  });
-                }
-              }); 
-            }
+            var bucket_index = 0;
+            var success = false;
+
+            // file into all buckets
+            (function uploadFileToS3Bucket() {
+              if (bucket_index < bucket_names.length) {
+                var params = {Bucket : bucket_names[bucket_index], Key : file.user._id + "/" + file.filename, Body : data };
+                s3.putObject(params, function(err, data) {
+                  if (err && bucket_index < bucket_names.length - 1) {
+                    // do nothing
+                  } else if (err && !success && bucket_index === bucket_names.length - 1) {
+                    return res.status(400).send({
+                      message: errorHandler.getErrorMessage(err)
+                    });
+                  } else {
+                    //  object saved in s3 - store metadata in mongodb
+                    // save file reference only once
+                    if (!success) {
+                      file.save(function (err) {
+                        if (err) {
+                          return res.status(400).send({
+                            message: err
+                          });
+                        } else {
+                          // file metadata save in mongodb success
+                          res.json(file);
+                          success = true;
+                        }
+                      });
+                    }
+                  }
+                  // increment bucket and recurse
+                  bucket_index++;
+                  uploadFileToS3Bucket();
+                });
+              }
+            }());          
           }
         });
       }
@@ -126,7 +122,7 @@ exports.read = function (req, res) {
     var params = {Bucket : bucket_names[0], Key : file.user._id + "/" + file.filename};
     s3.getObject(params, function(err, data) {
       if (err) {
-        console.log("coiuld not retrieve file from primary!");
+        console.log("could not retrieve file from primary!");
         var params2 = {Bucket : bucket_names[1], Key : file.user._id + "/" + file.filename};
         s3.getObject(params2, function(err, data){
           if (err) {
@@ -134,31 +130,27 @@ exports.read = function (req, res) {
             return res.status(400).send({
               message: err
             });
-          }
-          else {
+          } else {
             console.log("retreived file from secondary!");
             fs.writeFile(file.path, data, function(err, data) {
               if (err) {
                 return res.status(400).send({
                   message: err
                 });
-              }
-              else {
+              } else {
                 console.log("file retrieved from secondary and saved!");
               }
             });              
           }
         });
-      }
-      else {
+      } else {
         console.log("file retrieved from primary!" + data);
         fs.writeFile(req.file.path, data, function(err, data) {
           if (err) {
             return res.status(400).send({
               message: err
             });
-          }
-          else {
+          } else {
             console.log("file retrieved from primary and saved!");
           }
         });   
@@ -201,7 +193,12 @@ exports.delete = function (req, res) {
         message: errorHandler.getErrorMessage(err)
       });
     } else {
-      fs.unlink(file.path);
+      fs.unlink(file.path, function(err) {
+        if (err) {
+          console.log("unable to delete file: " + file.path);
+        }
+      });
+      
       res.json(file);
     }
   });
