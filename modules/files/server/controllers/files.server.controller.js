@@ -15,6 +15,24 @@ var path = require('path'),
 
 var bucket_names = ["cloudbucketnextgen","cloudbucketnextgenbackup"];
 
+// crypto functions
+var crypto = require('crypto'),
+    algorithm = 'aes-256-ctr',
+    secret_key = 'mddjfbecjenmdmdbmddjfbecjenmdmdb',
+    iv = 'bjdjfbecjenmdmdb';
+
+function encrypt(buffer){
+  var cipher = crypto.createCipher(algorithm, secret_key);
+  var crypted = Buffer.concat([cipher.update(buffer),cipher.final()]);
+  return crypted;
+}
+ 
+function decrypt(buffer){
+  var decipher = crypto.createDecipher(algorithm, secret_key);
+  var dec = Buffer.concat([decipher.update(buffer) , decipher.final()]);
+  return dec;
+}
+
 function get_file_from_s3(s3, bucket_names, i, key) {
   var params = {Bucket : bucket_names[i], Key : key};
   s3.getObject(params, function(err, data) {
@@ -60,7 +78,7 @@ exports.create = function (req, res) {
             });
           } else {
             // file read success
-            var file_data = data;
+            var file_data = encrypt(data);
 
             var bucket_index = 0;
             var success = false;
@@ -71,7 +89,7 @@ exports.create = function (req, res) {
                 var params = {
                   Bucket : bucket_names[bucket_index], 
                   Key : file.user._id + "/" + file.filename, 
-                  Body : data 
+                  Body : file_data 
                 };
 
                 s3.putObject(params, function(err, data) {
@@ -139,7 +157,8 @@ exports.read = function (req, res) {
             });
           } else {
             // successfully retrieved a file
-            fs.writeFile(file.path, data.Body, { flag: 'w' }, function(err) {
+            var dec_data = decrypt(data.Body);
+            fs.writeFile(file.path, dec_data, { flag: 'w' }, function(err) {
               if (err) {
                 return res.status(400).send({
                   message: err
@@ -190,22 +209,54 @@ exports.update = function (req, res) {
  */
 exports.delete = function (req, res) {
   var file = req.file;
+  var s3 = new aws_client.S3();
+            
+            var bucket_index = 0;
+            var success = false;
+            
+            // file into all buckets
+            (function deleteFilesFromS3Buckets() {
+              if (bucket_index < bucket_names.length) {
+                var params = {
+                  Bucket : bucket_names[bucket_index], 
+                  Key : file.user._id + "/" + file.filename
+                };
+                
+                s3.deleteObject(params, function(err, data) {
+                  if (err && bucket_index < bucket_names.length - 1) {
+                    // do nothing
+                  } else if (err && !success && bucket_index === bucket_names.length - 1) {
+                    return res.status(400).send({
+                      message: errorHandler.getErrorMessage(err)
+                    });
+                  } else {
+                    //  object saved in s3 - store metadata in mongodb
+                    // save file reference only once
+                    if (!success) {
+                      file.remove(function (err) {
+                        if (err) {
+                          return res.status(400).send({
+                            message: errorHandler.getErrorMessage(err)
+                          });
+                        } else {
+                          fs.unlink(file.path, function(err) {
+                            if (err) {
+                              console.log("unable to delete file: " + file.path);
+                            }
+                          });
+                          success = true;
+                          res.json(file);
+                      }
+                    });
+                    }
+                  }
+                  // increment bucket and recurse
+                  bucket_index++;
+                  deleteFilesFromS3Buckets();
+                });
+              }
+            }());          
 
-  file.remove(function (err) {
-    if (err) {
-      return res.status(400).send({
-        message: errorHandler.getErrorMessage(err)
-      });
-    } else {
-      fs.unlink(file.path, function(err) {
-        if (err) {
-          console.log("unable to delete file: " + file.path);
-        }
-      });
-
-      res.json(file);
-    }
-  });
 };
 
 /**
