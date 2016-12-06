@@ -14,7 +14,8 @@
       </thead>
       <tbody>
         <tr ng-repeat="file in files">
-          <td><a ui-sref="files.view({fileId: file._id})"><strong>{{ file.originalname }}</strong></a></td>
+        <!-- a ui-sref="files.view({fileId: file._id})" -->
+          <td><a target="_self" download="{{file.originalname}}" ng-href="{{file.path}}"><strong>{{ file.originalname }}</strong></a></td>
           <td ng-show="uploader.isHTML5" nowrap>{{ file.size/1024/1024|number:2 }} MB</td>
           <td nowrap>
             <button type="button" class="btn btn-danger btn-xs" ng-click="remove(file)">

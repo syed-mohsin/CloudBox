@@ -33,23 +33,6 @@ function decrypt(buffer){
   return dec;
 }
 
-function get_file_from_s3(s3, bucket_names, i, key) {
-  var params = {Bucket : bucket_names[i], Key : key};
-  s3.getObject(params, function(err, data) {
-    if (err) {
-      if (i === bucket_names.length) {
-        return [err, false];
-      }
-      else {
-        get_file_from_s3(bucket_names, i + 1, key);
-      }
-    }
-    else {
-      return [data, true];
-    }
-  }); 
-}
-
 /**
  * Upload a file
  */
