@@ -210,52 +210,51 @@ exports.update = function (req, res) {
 exports.delete = function (req, res) {
   var file = req.file;
   var s3 = new aws_client.S3();
+  var bucket_index = 0;
+  var success = false;
             
-            var bucket_index = 0;
-            var success = false;
-            
-            // file into all buckets
-            (function deleteFilesFromS3Buckets() {
-              if (bucket_index < bucket_names.length) {
-                var params = {
-                  Bucket : bucket_names[bucket_index], 
-                  Key : file.user._id + "/" + file.filename
-                };
-                
-                s3.deleteObject(params, function(err, data) {
-                  if (err && bucket_index < bucket_names.length - 1) {
-                    // do nothing
-                  } else if (err && !success && bucket_index === bucket_names.length - 1) {
-                    return res.status(400).send({
-                      message: errorHandler.getErrorMessage(err)
-                    });
-                  } else {
-                    //  object saved in s3 - store metadata in mongodb
-                    // save file reference only once
-                    if (!success) {
-                      file.remove(function (err) {
-                        if (err) {
-                          return res.status(400).send({
-                            message: errorHandler.getErrorMessage(err)
-                          });
-                        } else {
-                          fs.unlink(file.path, function(err) {
-                            if (err) {
-                              console.log("unable to delete file: " + file.path);
-                            }
-                          });
-                          success = true;
-                          res.json(file);
-                      }
-                    });
-                    }
-                  }
-                  // increment bucket and recurse
-                  bucket_index++;
-                  deleteFilesFromS3Buckets();
+  // file into all buckets
+  (function deleteFilesFromS3Buckets() {
+    if (bucket_index < bucket_names.length) {
+      var params = {
+        Bucket : bucket_names[bucket_index], 
+        Key : file.user._id + "/" + file.filename
+      };
+      
+      s3.deleteObject(params, function(err, data) {
+        if (err && bucket_index < bucket_names.length - 1) {
+          // do nothing
+        } else if (err && !success && bucket_index === bucket_names.length - 1) {
+          return res.status(400).send({
+            message: errorHandler.getErrorMessage(err)
+          });
+        } else {
+          //  object saved in s3 - store metadata in mongodb
+          // save file reference only once
+          if (!success) {
+            file.remove(function (err) {
+              if (err) {
+                return res.status(400).send({
+                  message: errorHandler.getErrorMessage(err)
                 });
-              }
-            }());          
+              } else {
+                fs.unlink(file.path, function(err) {
+                  if (err) {
+                    console.log("unable to delete file: " + file.path);
+                  }
+                });
+                success = true;
+                res.json(file);
+            }
+          });
+          }
+        }
+        // increment bucket and recurse
+        bucket_index++;
+        deleteFilesFromS3Buckets();
+      });
+    }
+  }());          
 
 };
 
